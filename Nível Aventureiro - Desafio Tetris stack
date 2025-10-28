@@ -1,0 +1,267 @@
+#include <stdio.h>
+#include <stdlib.h> 
+#include <string.h> 
+#include <time.h>   
+#include <stdbool.h>
+
+// Desafio Tetris Stack
+// Nível Aventureiro: Fila Circular + Pilha Linear de Reserva
+// Lógica Corrigida: A reposição da fila só ocorre quando há um DEQUEUE (Ação 1 e 2).
+
+// --- Constantes Globais ---
+#define CAPACIDADE_FILA 5    
+#define CAPACIDADE_PILHA 3   
+#define NUM_TIPOS_PECA 4
+
+// --- Estrutura de Dados ---
+typedef struct {
+    char nome; 
+    int id;    
+} Peca;
+
+// --- Variáveis Globais de Controle ---
+// Fila (Circular)
+Peca fila[CAPACIDADE_FILA];
+int frente = 0;
+int traseira = 0;
+int tamanho_fila = 0;
+
+// Pilha (Linear)
+Peca pilha[CAPACIDADE_PILHA];
+int topo = -1; 
+int tamanho_pilha = 0;
+
+// Contador Global de ID
+int proximo_id_global = 0; 
+const char tipos_peca[NUM_TIPOS_PECA] = {'I', 'T', 'O', 'L'};
+
+// ----------------------------------------------------------------------------
+// --- Protótipos das Funções ---
+// ----------------------------------------------------------------------------
+
+void limparBufferEntrada();
+Peca gerarPeca();
+
+// Fila Circular
+bool filaCheia();
+bool filaVazia();
+void enqueue(Peca nova_peca);
+Peca dequeue();
+
+// Pilha Linear
+bool pilhaCheia();
+bool pilhaVazia();
+void push(Peca nova_peca);
+Peca pop();
+
+// Lógica Principal e Ações
+void inicializarFilaPilha();
+void mostrarFilaEPilha();
+void jogarPecaAcao();           // Ação 1: Jogar (Dequeue + Reposição)
+void reservarPecaAcao();        // Ação 2: Reservar (Dequeue + Reposição)
+void usarPecaReservadaAcao();   // Ação 3: Usar Reserva (Pop APENAS)
+
+// ----------------------------------------------------------------------------
+// --- Implementação das Funções Auxiliares (Simplificadas) ---
+// ----------------------------------------------------------------------------
+
+void limparBufferEntrada() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {}
+}
+
+Peca gerarPeca() {
+    Peca nova_peca;
+    int indice_aleatorio = rand() % NUM_TIPOS_PECA;
+    nova_peca.nome = tipos_peca[indice_aleatorio];
+    nova_peca.id = proximo_id_global++; 
+    return nova_peca;
+}
+
+// ----------------------------------------------------------------------------
+// --- Implementação das Funções da Fila (Circular) e Pilha ---
+// ----------------------------------------------------------------------------
+
+// [Fila]
+bool filaCheia() { return tamanho_fila == CAPACIDADE_FILA; }
+bool filaVazia() { return tamanho_fila == 0; }
+void enqueue(Peca nova_peca) {
+    if (filaCheia()) return; 
+    fila[traseira] = nova_peca;
+    traseira = (traseira + 1) % CAPACIDADE_FILA; 
+    tamanho_fila++;
+}
+Peca dequeue() {
+    if (filaVazia()) { return (Peca){'X', -1}; } 
+    Peca peca_removida = fila[frente];
+    frente = (frente + 1) % CAPACIDADE_FILA; 
+    tamanho_fila--;
+    return peca_removida;
+}
+
+// [Pilha]
+bool pilhaCheia() { return topo == CAPACIDADE_PILHA - 1; }
+bool pilhaVazia() { return topo == -1; }
+void push(Peca nova_peca) {
+    if (pilhaCheia()) { printf("[ERRO] Pilha de reserva cheia!\n"); return; }
+    topo++;
+    pilha[topo] = nova_peca; 
+    tamanho_pilha++;
+}
+Peca pop() {
+    if (pilhaVazia()) { return (Peca){'X', -1}; } 
+    Peca peca_removida = pilha[topo];
+    topo--;
+    tamanho_pilha--;
+    return peca_removida;
+}
+
+// ----------------------------------------------------------------------------
+// --- Funções de Lógica e Ações (Integração CORRIGIDA) ---
+// ----------------------------------------------------------------------------
+
+void inicializarFilaPilha() {
+    for (int i = 0; i < CAPACIDADE_FILA; i++) {
+        enqueue(gerarPeca());
+    }
+    printf("[SETUP] Fila e Pilha inicializadas. Fila cheia (%d), Pilha vazia.\n", CAPACIDADE_FILA);
+}
+
+void mostrarFilaEPilha() {
+    // [Implementação omitida para brevidade - mantida igual à anterior]
+    printf("\n--- Estado Atual ---\n");
+    
+    // FILA
+    printf("Fila de peças (%d/%d): [ ", tamanho_fila, CAPACIDADE_FILA);
+    if (filaVazia()) {
+        printf("VAZIA ]\n");
+    } else {
+        for (int i = 0; i < tamanho_fila; i++) {
+            int indice = (frente + i) % CAPACIDADE_FILA;
+            Peca p = fila[indice];
+            printf("%c %d ", p.nome, p.id);
+            if (i < tamanho_fila - 1) { printf("] [ "); }
+        }
+        printf("]\n");
+    }
+    
+    // PILHA
+    printf("Pilha de reserva (%d/%d): [Base -> Topo]: [ ", tamanho_pilha, CAPACIDADE_PILHA);
+    if (pilhaVazia()) {
+        printf("VAZIA ]\n");
+    } else {
+        for (int i = 0; i <= topo; i++) {
+            Peca p = pilha[i];
+            printf("%c %d ", p.nome, p.id);
+            if (i < topo) { printf("] [ "); }
+        }
+        printf("]\n");
+    }
+    printf("--------------------\n");
+}
+
+
+/**
+ * AÇÃO 1: Jogar Peça (Dequeue + Reposição)
+ * Essa ação libera espaço e, portanto, exige reposição.
+ */
+void jogarPecaAcao() {
+    if (filaVazia()) { printf("[ERRO] Fila vazia! Não é possível jogar.\n"); return; }
+    
+    Peca jogada = dequeue(); // 1. Remove (libera espaço)
+    printf("[AÇÃO 1] Peça JOGADA (dequeue): [%c %d]\n", jogada.nome, jogada.id);
+
+    Peca nova = gerarPeca();
+    enqueue(nova); // 2. Repõe (mantém 5/5)
+    printf("[REPOSIÇÃO] Nova peça adicionada ao final da fila: [%c %d]\n", nova.nome, nova.id);
+}
+
+/**
+ * AÇÃO 2: Reservar Peça (Fila -> Pilha) (Dequeue + Reposição)
+ * Essa ação libera espaço na FILA e, portanto, exige reposição.
+ */
+void reservarPecaAcao() {
+    if (pilhaCheia()) { printf("[ERRO] Pilha de reserva cheia!\n"); return; }
+    if (filaVazia()) { printf("[ERRO] Fila vazia! Não há peças para reservar.\n"); return; }
+    
+    Peca reservada = dequeue(); // 1. Remove da Fila (libera espaço)
+    push(reservada);            // 2. Insere na Pilha
+    
+    printf("[AÇÃO 2] Peça RESERVADA (movida fila -> pilha): [%c %d]\n", reservada.nome, reservada.id);
+
+    Peca nova = gerarPeca();
+    enqueue(nova); // 3. Repõe a Fila (mantém 5/5)
+    printf("[REPOSIÇÃO] Nova peça adicionada ao final da fila: [%c %d]\n", nova.nome, nova.id);
+}
+
+/**
+ * AÇÃO 3: Usar Peça Reservada (Pop APENAS)
+ * Essa ação NÃO libera espaço na fila, portanto, NÃO exige reposição.
+ */
+void usarPecaReservadaAcao() {
+    if (pilhaVazia()) { printf("[ALERTA] Pilha de reserva vazia. Nenhuma peça para usar.\n"); return; }
+    
+    Peca usada = pop(); // 1. Remove da Pilha (NÃO TOCA NA FILA)
+    
+    printf("[AÇÃO 3] Peça RESERVADA USADA (removida do topo): [%c %d]\n", usada.nome, usada.id);
+
+    // Reposição da Fila: OMITIDA para preservar a ordenação e o estado da fila (5/5).
+    printf("[REPOSIÇÃO OMITIDA] Fila de peças futuras mantida inalterada (5/5).\n");
+}
+
+
+// ----------------------------------------------------------------------------
+// --- Função Principal (main) ---
+// ----------------------------------------------------------------------------
+
+int main() {
+    int escolha;
+    
+    srand(time(NULL)); 
+
+    printf("**********************************************\n");
+    printf("* TETRIS STACK - NÍVEL AVENTUREIRO (FINAL) *\n");
+    printf("**********************************************\n");
+
+    inicializarFilaPilha();
+    mostrarFilaEPilha();
+    
+    do {
+        printf("\n--- Menu de Ações ---\n");
+        printf("1 - Jogar peça (dequeue da fila)\n");
+        printf("2 - Reservar peça (fila -> pilha)\n");
+        printf("3 - Usar peça reservada (pop da pilha)\n");
+        printf("0 - Sair\n");
+        printf("Escolha: ");
+        
+        if (scanf("%d", &escolha) != 1) {
+            printf("[ERRO] Entrada inválida. Tente novamente.\n");
+            escolha = -1;
+            limparBufferEntrada();
+        }
+
+        switch (escolha) {
+            case 1:
+                jogarPecaAcao();
+                break;
+            case 2:
+                reservarPecaAcao();
+                break;
+            case 3:
+                usarPecaReservadaAcao();
+                break;
+            case 0:
+                printf("\nSaindo da simulação.\n");
+                break;
+            default:
+                printf("\nOpção desconhecida. Tente novamente.\n");
+        }
+        
+        // Exibir o estado atual após cada ação válida
+        if (escolha >= 1 && escolha <= 3) {
+             mostrarFilaEPilha();
+        }
+    } while (escolha != 0);
+
+    return 0;
+}
