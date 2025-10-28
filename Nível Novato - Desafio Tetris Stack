@@ -1,0 +1,180 @@
+#include <stdio.h>
+#include <stdlib.h> // Para rand(), exit()
+#include <string.h> // Para manipulação de strings
+#include <time.h>   // Para srand(time(NULL))
+#include <stdbool.h> // Para usar bool (Operadores lógicos e condicionais)
+
+// Desafio Tetris Stack
+// Nível Novato: Fila de Peças Futuras
+// Conceitos: Fila Circular, Structs e Modularização.
+
+// --- Constantes Globais ---
+#define CAPACIDADE_FILA 5 // Número fixo de elementos
+#define NUM_TIPOS_PECA 4
+
+// --- Estrutura de Dados (Structs e Arrays) ---
+typedef struct {
+    char nome; // Tipo da peça ('I', 'T', 'O', 'L')
+    int id;    // ID sequencial único
+} Peca;
+
+// --- Variáveis Globais de Controle da Fila Circular ---
+Peca fila[CAPACIDADE_FILA];
+int frente = 0; // Índice da cabeça (próxima peça a sair)
+int traseira = 0; // Índice da cauda (próxima posição a ser preenchida)
+int tamanho = 0; // Número atual de elementos (Operadores lógicos e condicionais)
+int proximo_id_global = 0; // Para gerar IDs sequenciais
+const char tipos_peca[NUM_TIPOS_PECA] = {'I', 'T', 'O', 'L'};
+
+// ----------------------------------------------------------------------------
+// --- Protótipos das Funções (Modularização) ---
+// ----------------------------------------------------------------------------
+void limparBufferEntrada();
+Peca gerarPeca();
+void inicializarFila();
+bool filaCheia();
+bool filaVazia();
+void enqueue(Peca nova_peca);
+Peca dequeue();
+void mostrarFila();
+
+// ----------------------------------------------------------------------------
+// --- Implementação das Funções Utilitárias e Lógicas ---
+// ----------------------------------------------------------------------------
+
+void limparBufferEntrada() {
+    // Entrada e saída de dados: Interação com o terminal
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {}
+}
+
+Peca gerarPeca() {
+    // Funções e modularização: Responsável apenas por criar a peça
+    Peca nova_peca;
+    int indice_aleatorio = rand() % NUM_TIPOS_PECA;
+    nova_peca.nome = tipos_peca[indice_aleatorio];
+    nova_peca.id = proximo_id_global++; 
+    return nova_peca;
+}
+
+// Funções de Checagem (Operadores lógicos e condicionais)
+bool filaCheia() {
+    return tamanho == CAPACIDADE_FILA;
+}
+
+bool filaVazia() {
+    return tamanho == 0;
+}
+
+// inicializarFila(): Preenche a fila inicial
+void inicializarFila() {
+    for (int i = 0; i < CAPACIDADE_FILA; i++) {
+        enqueue(gerarPeca());
+    }
+    printf("[SETUP] Fila inicializada com %d peças.\n", CAPACIDADE_FILA);
+}
+
+// enqueue() - Inserir nova peça ao final da fila (Fila circular)
+void enqueue(Peca nova_peca) {
+    if (filaCheia()) {
+        printf("[ERRO] Fila cheia!\n");
+        return;
+    }
+    
+    fila[traseira] = nova_peca;
+    traseira = (traseira + 1) % CAPACIDADE_FILA; // Lógica da Fila Circular
+    tamanho++;
+}
+
+// dequeue() - Remover a peça da frente da fila (Fila circular)
+Peca dequeue() {
+    if (filaVazia()) {
+        printf("[ERRO] Fila vazia!\n");
+        return (Peca){'X', -1}; // Peça de erro
+    }
+    
+    Peca peca_removida = fila[frente];
+    frente = (frente + 1) % CAPACIDADE_FILA; // Lógica da Fila Circular
+    tamanho--;
+    
+    return peca_removida;
+}
+
+// mostrarFila() - Exibir o estado da Fila
+void mostrarFila() {
+    // Entrada e saída de dados: Exibe o estado
+    printf("\n--- Fila de Peças Futuras (%d/%d) ---\n", tamanho, CAPACIDADE_FILA);
+    
+    if (filaVazia()) {
+        printf("[ Fila vazia ]\n");
+        return;
+    }
+
+    printf("Fila: [ ");
+    
+    // Percorre a fila usando a lógica circular (Structs e arrays)
+    for (int i = 0; i < tamanho; i++) {
+        int indice = (frente + i) % CAPACIDADE_FILA;
+        Peca p = fila[indice];
+        
+        printf("%c %d ", p.nome, p.id);
+        
+        if (i < tamanho - 1) {
+            printf("] [ ");
+        }
+    }
+    printf("]\n");
+}
+
+// ----------------------------------------------------------------------------
+// --- Função Principal (main) ---
+// ----------------------------------------------------------------------------
+
+int main() {
+    srand(time(NULL)); 
+    int escolha;
+    
+    printf("**********************************************\n");
+    printf("* TETRIS STACK - NÍVEL BÁSICO (FILA CIRCULAR) *\n");
+    printf("**********************************************\n");
+
+    inicializarFila();
+    mostrarFila();
+
+    do {
+        printf("\n--- Menu de Ações ---\n");
+        printf("1 - Jogar peça (dequeue)\n");
+        printf("0 - Sair\n");
+        printf("Escolha: ");
+        
+        // Entrada e saída de dados: Leitura da escolha
+        if (scanf("%d", &escolha) != 1) {
+            printf("[ERRO] Entrada inválida.\n");
+            escolha = -1;
+            limparBufferEntrada();
+        }
+
+        switch (escolha) {
+            case 1: {
+                Peca jogada = dequeue();
+                if (jogada.id != -1) { 
+                    printf("[AÇÃO] Peça JOGADA: [%c %d]\n", jogada.nome, jogada.id);
+                    
+                    // Reposição automática: insira uma nova peça ao final da fila
+                    Peca nova = gerarPeca();
+                    enqueue(nova);
+                    printf("[AÇÃO] Nova peça INSERIDA (reposição): [%c %d]\n", nova.nome, nova.id);
+                }
+                mostrarFila();
+                break;
+            }
+            case 0:
+                printf("\nSaindo da simulação.\n");
+                break;
+            default:
+                printf("\nOpção desconhecida.\n");
+        }
+    } while (escolha != 0);
+
+    return 0;
+}
